@@ -9,8 +9,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.TimerTask;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import ow.dht.ByteArray;
 import ow.dht.DHT;
@@ -20,6 +22,7 @@ import ow.dht.ValueInfo;
 import ow.id.ID;
 import ow.id.IDAddressPair;
 import ow.messaging.MessagingAddress;
+import ow.messaging.Signature;
 import ow.routing.RoutingAlgorithmConfiguration;
 import ow.routing.RoutingException;
 import ow.routing.RoutingResult;
@@ -28,12 +31,14 @@ import ow.tool.emulator.EmulatorControllable;
 import ow.tool.util.shellframework.CommandUtil;
 import ow.tool.util.shellframework.Interruptible;
 import ow.tool.util.shellframework.Shell;
+import ow.util.HighLevelService;
+import ow.util.HighLevelServiceConfiguration;
 
-public class OwDHT<V extends Serializable> extends TimerTask
-		implements DHT, Runnable, Interruptible, EmulatorControllable {
+public class OwDHT<V extends Serializable> extends TimerTask implements Runnable, Interruptible, EmulatorControllable {
+	public static byte MODULE_ID_DHT = 5;
 	private PrintStream out = System.out;
 	private DHT<V> dht;
-	private boolean showStatus = true;
+	private boolean showStatus = false;
 
 	public OwDHT(DHTConfiguration config) throws Exception {
 		this.dht = DHTFactory.getDHT(config); // throws Exception
@@ -70,23 +75,27 @@ public class OwDHT<V extends Serializable> extends TimerTask
 		this.showStatus = false;
 	}
 
+	// TODO make status logger
 	public static void main(String[] args) {
 		OwDHT<String> test;
+		StringBuilder sb = new StringBuilder();
+		DHTConfiguration config = DHTFactory.getDefaultConfiguration();
+//		MessagingUtility.HostAndPort hostAndPort = MessagingUtility.parseHostnameAndPort("192.168.132.108:3997",config.getSelfPort());
+//		System.out.println(hostAndPort.getHostName());
+		config.setSelfAddress("192.168.132.108");
+		config.setSelfPort(3997);
 		try {
-			test = new OwDHT<String>(DHTFactory.getDefaultConfiguration());
+			test = new OwDHT<String>(OwDHT.MODULE_ID_DHT, (short) 0x10000, config);
 		} catch (Exception e) {
 			System.err.println("An Exception thrown:");
 			e.printStackTrace();
 			return;
 		}
-		String[] valueStr = {"sampleValue1", "sampleValue2"};
-		test.put("sampleKey", valueStr);
+		test.enableShowStatus();
+		test.put("sampleKey", "sampleValue");
+		while (true)
+			;
 	}
-
-	private void start(String[] args) {
-	}
-
-	@Override
 	public void invoke(String[] arg, PrintStream out) throws Throwable {
 		// TODO Auto-generated method stub
 		this.out = out;
@@ -98,8 +107,36 @@ public class OwDHT<V extends Serializable> extends TimerTask
 		return null;
 	}
 
-	private void init() {
-
+	public void init(String contactHost, int port) throws UnknownHostException {
+		HighLevelService svc = this.dht;
+		HighLevelServiceConfiguration config = svc.getConfiguration();
+		MessagingAddress contactAddr = null;
+		try {
+			contactAddr = svc.joinOverlay(contactHost, port);
+		} catch (UnknownHostException e) {
+			StringBuilder sb = new StringBuilder();
+			sb.append("Hostname resolution failed on ").append(svc.getSelfIDAddressPair().getAddress())
+					.append(Shell.CRLF);
+			this.out.print(sb);
+			System.err.print(sb);
+			this.out.flush();
+			throw e;
+		} catch (RoutingException e) {
+			StringBuilder sb = new StringBuilder();
+			sb.append("routing failed on ").append(svc.getSelfIDAddressPair()).append(Shell.CRLF);
+			e.printStackTrace();
+			this.out.print(sb);
+			System.err.print(sb);
+		}
+		if (contactAddr != null) {
+			this.out.print("contact: " + contactAddr.getHostAddress() + ":" + contactAddr.getPort() + Shell.CRLF);
+		} else {
+			this.out.print("joined failed." + Shell.CRLF);
+		}
+		if (showStatus) {
+			this.out.print(CommandUtil.buildStatusMessage(this.dht, -1));
+		}
+		this.out.flush();
 	}
 
 	@Override
@@ -114,143 +151,44 @@ public class OwDHT<V extends Serializable> extends TimerTask
 
 	}
 
-	@Override
-	public void clearRoutingTable() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public ID[] getLastKeys() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public RoutingResult[] getLastRoutingResults() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public RoutingAlgorithmConfiguration getRoutingAlgorithmConfiguration() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public RoutingService getRoutingService() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public String getRoutingTableString(int arg0) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public IDAddressPair getSelfIDAddressPair() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public MessagingAddress joinOverlay(String arg0) throws UnknownHostException, RoutingException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public MessagingAddress joinOverlay(String arg0, int arg1) throws UnknownHostException, RoutingException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public void resume() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void setStatCollectorAddress(String arg0, int arg1) throws UnknownHostException {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void stop() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void suspend() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void clearDHTState() {
-		// TODO Auto-generated method stub
-
-	}
-
 	public Set get(String keyStr) {
 		ID key = ID.parseID(keyStr, this.dht.getRoutingAlgorithmConfiguration().getIDSizeInByte());
 		StringBuilder sb = new StringBuilder();
 		Set<ValueInfo<V>> value;
+
 		try {
-			value = this.get(key);
-	
-		}catch(RoutingException e) {
+			value = this.dht.get(key);
+			return value;
+
+		} catch (RoutingException e) {
 			sb.append("routing failed: ").append(key).append(Shell.CRLF);
 			System.err.print(sb);
 			this.out.print(sb);
 			this.out.flush();
 		}
-		return value;
-	}
-	@Override
-	public Set get(ID key) throws RoutingException {
-		// TODO Auto-generated method stub
-		Set<ValueInfo<V>> value = this.dht.get(key);
-		return value;
-	}
-
-	@Override
-	public Set[] get(ID[] arg0) {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
-	@Override
-	public DHTConfiguration getConfiguration() {
-		// TODO Auto-generated method stub
-		return null;
+	public Set[] get(String[] keysStr) {
+		Queue<ID> requestQueue = new ConcurrentLinkedQueue<ID>();
+		for (int i = 0; i < keysStr.length; i++) {
+			ID key = ID.parseID(keysStr[i], this.dht.getRoutingAlgorithmConfiguration().getIDSizeInByte());
+			requestQueue.offer(key);
+		}
+		ID[] keys = new ID[requestQueue.size()];
+		for (int i = 0; i < keys.length; i++)
+			keys[i] = requestQueue.poll();
+		Set<ValueInfo<V>>[] values;
+		values = this.dht.get(keys);
+
+		return values;
 	}
 
-	@Override
-	public Set getGlobalKeys() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public Set getGlobalValues(ID arg0) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public Set getLocalKeys() {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
-	@Override
 	public Set getLocalValues(ID arg0) {
 		// TODO Auto-generated method stub
 		return null;
@@ -266,26 +204,19 @@ public class OwDHT<V extends Serializable> extends TimerTask
 		return this.put(key, values);
 	}
 
-	@Override
-	public Set[] put(PutRequest[] arg0) throws Exception {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public Set put(ID key, Serializable value) {
 		// TODO Auto-generated method stub
 		Set<ValueInfo<V>> valueInfo = null;
 		try {
-			valueInfo = dht.put(key, (V)value);
-			if(value == null) {
+			valueInfo = dht.put(key, (V) value);
+			if (value == null) {
 				this.out.print("routing failed: " + key + Shell.CRLF);
 			}
-			if(this.showStatus) {
+			if (this.showStatus) {
 				this.out.print(CommandUtil.buildStatusMessage(dht, -1));
 				this.out.flush();
-			} 
-		}catch(Exception e) {
+			}
+		} catch (Exception e) {
 			this.out.print("An exception thrown:" + Shell.CRLF);
 			System.err.print("A exception thrown:" + Shell.CRLF);
 			e.printStackTrace(this.out);
@@ -293,16 +224,15 @@ public class OwDHT<V extends Serializable> extends TimerTask
 			this.out.flush();
 			System.err.flush();
 		}
-		
+
 		return valueInfo;
 	}
 
-	@Override
 	public Set put(ID key, Serializable[] values) {
 		// TODO Auto-generated method stub
 		Set<ValueInfo<V>> value = null;
 		try {
-			value = dht.put(key, (V[])values);
+			value = dht.put(key, (V[]) values);
 			if (value == null) {
 				this.out.print("routing failed: " + key + Shell.CRLF);
 			}
@@ -319,42 +249,6 @@ public class OwDHT<V extends Serializable> extends TimerTask
 			System.err.flush();
 		}
 		return value;
-	}
-
-	@Override
-	public Set remove(ID arg0, ByteArray arg1) throws RoutingException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public Set[] remove(RemoveRequest[] arg0, ByteArray arg1) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public Set remove(ID arg0, Serializable[] arg1, ByteArray arg2) throws RoutingException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public Set remove(ID arg0, ID[] arg1, ByteArray arg2) throws RoutingException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public ByteArray setHashedSecretForPut(ByteArray arg0) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public long setTTLForPut(long arg0) {
-		// TODO Auto-generated method stub
-		return 0;
 	}
 
 }
