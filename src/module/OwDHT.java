@@ -79,13 +79,16 @@ public class OwDHT<V extends Serializable> extends TimerTask implements Runnable
 	public static void main(String[] args) {
 		OwDHT<String> test;
 		StringBuilder sb = new StringBuilder();
+
 		DHTConfiguration config = DHTFactory.getDefaultConfiguration();
 //		MessagingUtility.HostAndPort hostAndPort = MessagingUtility.parseHostnameAndPort("192.168.132.108:3997",config.getSelfPort());
 //		System.out.println(hostAndPort.getHostName());
 		config.setSelfAddress("192.168.132.108");
 		config.setSelfPort(3997);
+
 		try {
 			test = new OwDHT<String>(OwDHT.MODULE_ID_DHT, (short) 0x10000, config);
+
 		} catch (Exception e) {
 			System.err.println("An Exception thrown:");
 			e.printStackTrace();
@@ -93,6 +96,7 @@ public class OwDHT<V extends Serializable> extends TimerTask implements Runnable
 		}
 		test.enableShowStatus();
 		test.put("sampleKey", "sampleValue");
+
 		while (true)
 			;
 	}
